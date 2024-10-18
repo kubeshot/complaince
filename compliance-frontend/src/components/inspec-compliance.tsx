@@ -359,22 +359,33 @@ export function InspecComplianceComponent() {
                   </Select>
 
                   {/* Value Field based on Property */}
-                  {propertyConfig?.inputType === 'dropdown' ? (
-                    <Select value={condition.value} onValueChange={(value) => handleConditionChange(index, 'value', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Value" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {propertyConfig.allowedValues.map((val) => (
-                          <SelectItem key={val} value={val}>
-                            {val}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input value={condition.value} onChange={(e) => handleConditionChange(index, 'value', e.target.value)} placeholder="Value" />
-                  )}
+                  {condition.property === 'priority' ? (
+                    <Input
+                      value={condition.value}
+                      onChange={(e) => handleConditionChange(index, 'value', e.target.value)}
+                      placeholder="Priority (0-65535)"
+                      type="number"
+                      min="0"
+                      max="65535"
+                    />
+                  ) :
+
+                    propertyConfig?.inputType === 'dropdown' ? (
+                      <Select value={condition.value} onValueChange={(value) => handleConditionChange(index, 'value', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {propertyConfig.allowedValues.map((val) => (
+                            <SelectItem key={val} value={val}>
+                              {val}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value={condition.value} onChange={(e) => handleConditionChange(index, 'value', e.target.value)} placeholder="Value" />
+                    )}
 
                   {/* Add or Remove Condition */}
                   <Button variant="outline" size="icon" onClick={addCondition}>
