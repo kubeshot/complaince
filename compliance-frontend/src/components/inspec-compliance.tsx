@@ -17,10 +17,11 @@ export function InspecComplianceComponent() {
   const [controlStrings, setControlStrings] = useState([])
   const [projects, setProjects] = useState([])
 
+
   const resources = ['google_compute_firewall', 'google_compute_instance', 'google_storage_bucket']
 
   const propertiesByResource = {
-    google_compute_firewall: ['direction', 'priority', 'source_ranges', 'network', 'target_tags'],
+    google_compute_firewall: ['direction', 'priority', 'source_ranges', 'network', 'target_tags', 'allowed', 'denied', 'disabled', 'destination_ranges', 'log_config', 'source_tags', 'source_service_accounts', 'target_service_accounts', 'creation_timestamp', 'description', 'id', 'name'],
     google_compute_instance: ['machine_type', 'status', 'tags', 'zone', 'disks'],
     google_storage_bucket: ['location', 'storage_class', 'public_access_prevention'],
   }
@@ -48,11 +49,87 @@ export function InspecComplianceComponent() {
     }
   }
 
+  // const handleConditionChange = (index, field, value) => {
+  //   const newConditions = [...conditions]
+  //   newConditions[index][field] = value
+  //   setConditions(newConditions)
+  // }
+
   const handleConditionChange = (index, field, value) => {
-    const newConditions = [...conditions]
-    newConditions[index][field] = value
-    setConditions(newConditions)
-  }
+    const newConditions = [...conditions];
+
+    // If the user changes the property, reset the operator and value
+    if (field === 'property') {
+      const selectedProperty = value; // New property selected
+      const propertyConfig = firewallPropertiesConfig[selectedProperty];
+
+      newConditions[index] = {
+        property: selectedProperty,
+        operator: propertyConfig?.operator || 'Equals', // Reset operator to default for the new property
+        value: propertyConfig?.allowedValues ? propertyConfig.allowedValues[0] : '', // Reset value based on new property
+      };
+    } else {
+      // If any other field is being updated, just update the specific field
+      newConditions[index][field] = value;
+    }
+
+    setConditions(newConditions);
+  };
+
+
+
+  // firewall properties
+  const firewallPropertiesConfig = {
+    direction: {
+      allowedValues: ['INGRESS', 'EGRESS'],
+      operator: 'Equals', // Default operator for direction
+      inputType: 'dropdown', // Type of input (dropdown)
+    },
+    ip_protocol: {
+      allowedValues: ['tcp', 'udp', 'icmp', 'esp', 'ah', 'sctp', 'ipip', 'all'],
+      inputType: 'dropdown',
+    },
+    ports: {
+      dependsOn: 'ip_protocol', // Only visible if ip_protocol is 'tcp' or 'udp'
+      inputType: 'text', // Ports are a list or range in text form
+      validation: {
+        regex: /^[0-9\-]+$/, // Only allow numbers and hyphen for ranges
+      },
+    },
+    description: {
+      inputType: 'text',
+    },
+    priority: {
+      inputType: 'number',
+      validation: {
+        min: 0,
+        max: 65535,
+      },
+    },
+    source_ranges: {
+      inputType: 'text',
+      validation: {
+        regex: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/, // CIDR format
+      },
+    },
+    destination_ranges: {
+      inputType: 'text',
+      validation: {
+        regex: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/,
+      },
+    },
+    disabled: {
+      inputType: 'boolean',
+    },
+    log_config: {
+      inputType: 'object', // Can be further expanded for nested fields
+    },
+    // Additional properties can be added here...
+  };
+
+
+
+
 
   const generateControlString = () => {
     let controlString = ''
@@ -108,7 +185,7 @@ export function InspecComplianceComponent() {
       }
 
       controlString += `    describe "Bucket: #{bucket_name} in Project: #{project_id}" do\n`
-      
+
       // Check for public access prevention
       controlString += `      it "should not be publicly accessible" do\n`
       controlString += `        bucket = google_storage_bucket(project: ${scope === 'all' ? 'project_id' : `"${selectedProject}"`}, name: bucket_name)\n`
@@ -193,7 +270,7 @@ export function InspecComplianceComponent() {
         {resource && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Conditions</h3>
-            {conditions.map((condition, index) => (
+            {/* {conditions.map((condition, index) => (
               <div key={index} className="flex items-center space-x-2">
                 <Select value={condition.property} onValueChange={(value) => handleConditionChange(index, 'property', value)}>
                   <SelectTrigger>
@@ -233,7 +310,75 @@ export function InspecComplianceComponent() {
                   </Button>
                 )}
               </div>
-            ))}
+            ))} */}
+
+
+            {conditions.map((condition, index) => {
+              const propertyConfig = firewallPropertiesConfig[condition.property];
+
+              return (
+                <div key={index} className="flex items-center space-x-2">
+                  {/* Property Selection */}
+                  <Select value={condition.property} onValueChange={(value) => handleConditionChange(index, 'property', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(firewallPropertiesConfig).map((prop) => (
+                        <SelectItem key={prop} value={prop}>
+                          {prop}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Operator Selection */}
+                  <Select value={condition.operator} onValueChange={(value) => handleConditionChange(index, 'operator', value)} disabled={propertyConfig?.operator}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operators.map((op) => (
+                        <SelectItem key={op} value={op}>
+                          {op}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Value Field based on Property */}
+                  {propertyConfig?.inputType === 'dropdown' ? (
+                    <Select value={condition.value} onValueChange={(value) => handleConditionChange(index, 'value', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Value" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyConfig.allowedValues.map((val) => (
+                          <SelectItem key={val} value={val}>
+                            {val}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input value={condition.value} onChange={(e) => handleConditionChange(index, 'value', e.target.value)} placeholder="Value" />
+                  )}
+
+                  {/* Add or Remove Condition */}
+                  <Button variant="outline" size="icon" onClick={addCondition}>
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                  {conditions.length > 1 && (
+                    <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+
+
+
           </div>
         )}
       </CardContent>
