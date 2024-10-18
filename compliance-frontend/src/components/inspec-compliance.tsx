@@ -68,7 +68,19 @@ export function InspecComplianceComponent() {
         operator: propertyConfig?.operator || 'Equals', // Reset operator to default for the new property
         value: propertyConfig?.allowedValues ? propertyConfig.allowedValues[0] : '', // Reset value based on new property
       };
-    } else {
+    } else if (field === 'value' && newConditions[index].property === 'priority') {
+      // Handle priority validation
+      const numericValue = parseInt(value, 10);
+      if (isNaN(numericValue) || numericValue < 0 || numericValue > 65535) {
+        alert('Priority must be an integer between 0 and 65535');
+        return;
+      } else {
+        newConditions[index][field] = numericValue;
+      }
+    }
+
+
+    else {
       // If any other field is being updated, just update the specific field
       newConditions[index][field] = value;
     }
