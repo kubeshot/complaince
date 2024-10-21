@@ -5,6 +5,8 @@ from googleapiclient.discovery import build
 from dotenv import load_dotenv
 import os
 from flask_cors import CORS  # Import CORS
+import time
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -81,6 +83,34 @@ def download_control():
         return jsonify({"error": str(e)}), 400
 
 from google.cloud import resourcemanager_v3
+
+
+@app.route('/save_file', methods=['POST'])
+def save_file():
+
+
+    # Get the content from the request
+    content = request.json.get('content')
+
+    print(content)
+
+    if content is None:
+        return jsonify({'error': 'No content provided'}), 400
+
+    # Define the file path
+    # file_path = os.path.join('./controls/', 'compliance_control.rb')
+
+    timestamp = int(time.time())  # Get the current time as a timestamp
+    file_name = f'compliance_control_{timestamp}.rb'
+    file_path = os.path.join('./controls/', file_name)
+
+
+    # Write the content to the file
+    with open(file_path, 'w') as file:
+        file.write(content)
+
+    return jsonify({'message': 'File saved successfully'}), 200
+
 
 def get_all_folders(org_id):
     """Fetch all folders under the given organization."""
