@@ -17,6 +17,7 @@ export function InspecComplianceComponent() {
   const [controlStrings, setControlStrings] = useState([])
   const [projects, setProjects] = useState([])
 
+  const [loading, setLoading] = useState(false);
 
   const resources = ['google_compute_firewall', 'google_compute_instance', 'google_storage_bucket']
 
@@ -29,11 +30,14 @@ export function InspecComplianceComponent() {
   const operators = ['Equals', 'Not Equals', 'Greater Than', 'Less Than', 'Contains', 'Does Not Contain']
 
   useEffect(() => {
+    setLoading(true);
     axios.get('http://localhost:5001/api/projects')
       .then(response => {
+        setLoading(false);
         setProjects(response.data.projects)
       })
       .catch(error => {
+        setLoading(false)
         console.error('Error fetching projects:', error)
       })
   }, [])
@@ -100,6 +104,7 @@ export function InspecComplianceComponent() {
     ip_protocol: {
       allowedValues: ['tcp', 'udp', 'icmp', 'esp', 'ah', 'sctp', 'ipip', 'all'],
       inputType: 'dropdown',
+      operator: 'Equals'
     },
     ports: {
       dependsOn: 'ip_protocol', // Only visible if ip_protocol is 'tcp' or 'udp'
@@ -219,6 +224,58 @@ export function InspecComplianceComponent() {
     setControlStrings([...controlStrings, controlString])
   }
 
+  const generateRubyContent = () => {
+    let rubyFileContent = '';
+
+    controlStrings.forEach((control, index) => {
+      rubyFileContent += `control 'control_${index + 1}' do\n`;
+      rubyFileContent += `  desc "Condition: ${control}"\n`;
+      // Additional formatting can be added if needed
+      rubyFileContent += "end\n\n";
+    });
+
+    return rubyFileContent;
+  };
+
+  // Function to save Ruby file
+  // const saveRubyFile = (content: string) => {
+  //   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement('a');
+  //   a.href = url;
+  //   a.download = 'compliance_control.rb';
+  //   a.click();
+  //   URL.revokeObjectURL(url);
+  // };
+
+
+  const saveRubyFile = async (content: string) => {
+    console.log("saving file")
+    try {
+      const response = await fetch('http://localhost:5001/save_file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      console.log(data.message); // Log success message
+    } catch (error) {
+      console.error('Error saving file:', error);
+    }
+  };
+
+  const handleGenerateRubyFile = () => {
+    const rubyContent = generateRubyContent();
+    saveRubyFile(rubyContent);
+  };
+
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
@@ -257,7 +314,7 @@ export function InspecComplianceComponent() {
           )}
         </div>
 
-        {scope === 'single' && (
+        {/* {scope === 'single' &&  (
           <div className="space-y-2">
             <Label htmlFor="project">Select Project</Label>
             <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -277,7 +334,35 @@ export function InspecComplianceComponent() {
               </SelectContent>
             </Select>
           </div>
+        )} */}
+
+        {scope === 'single' && (
+          !loading ? (
+            <div className="space-y-2">
+              <Label htmlFor="project">Select Project</Label>
+              <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <SelectTrigger id="project">
+                  <SelectValue placeholder="Select Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.isArray(projects) && projects.length > 0 ? (
+                    projects.map((proj) => (
+                      <SelectItem key={proj.project_id} value={proj.project_id}>
+                        {proj.project_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>No projects available.</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <p>Loading...</p>
+          )
         )}
+
+
 
         {resource && (
           <div className="space-y-4">
@@ -405,9 +490,15 @@ export function InspecComplianceComponent() {
           </div>
         )}
       </CardContent>
-      <CardFooter>
-        <Button onClick={generateControlString}>Generate Control</Button>
-      </CardFooter>
+      <div className='flex' >
+        <CardFooter>
+          <Button onClick={generateControlString}>Generate Control</Button>
+        </CardFooter>
+        {controlStrings.length > 0 &&
+          <CardFooter>
+            <Button onClick={handleGenerateRubyFile}>Generate Ruby file</Button>
+          </CardFooter>}
+      </div>
 
       {controlStrings.length > 0 && (
         <CardContent>
