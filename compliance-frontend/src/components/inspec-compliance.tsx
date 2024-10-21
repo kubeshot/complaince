@@ -59,13 +59,13 @@ export function InspecComplianceComponent() {
   //   setConditions(newConditions)
   // }
 
-  const handleConditionChange = (index, field, value) => {
+  const handleConditionChange = (index, field, value, config) => {
     const newConditions = [...conditions];
 
     // If the user changes the property, reset the operator and value
     if (field === 'property') {
       const selectedProperty = value; // New property selected
-      const propertyConfig = firewallPropertiesConfig[selectedProperty];
+      const propertyConfig = config[selectedProperty];
 
       newConditions[index] = {
         property: selectedProperty,
@@ -126,21 +126,167 @@ export function InspecComplianceComponent() {
     source_ranges: {
       inputType: 'text',
       validation: {
-        regex: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/, // CIDR format
+        // regex: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/, // CIDR format
       },
     },
     destination_ranges: {
       inputType: 'text',
       validation: {
-        regex: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/,
+        // regex: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/,
       },
     },
     disabled: {
-      inputType: 'boolean',
+      allowedValues: ['True', 'False'],
+      inputType: 'dropdown',
+      operator: 'Equals',
     },
-    log_config: {
-      inputType: 'object', // Can be further expanded for nested fields
+    // log_config: {
+    //   inputType: 'object', // Can be further expanded for nested fields
+    // },
+    // Additional properties can be added here...
+  };
+
+  const storageBucketConfig = {
+    name: {
+      inputType: 'text', // Name of the storage bucket
+      validation: {
+        required: true, // The name is mandatory
+        regex: /^[a-z0-9-]+$/, // Example regex for bucket name validation
+      },
+      operator:'Equals'
     },
+    location: {
+      inputType: 'dropdown', // Dropdown for bucket location
+      allowedValues: ['US', 'EUROPE-WEST2', 'ASIA', 'REGIONAL', 'MULTI_REGIONAL'], // Example locations
+      operator:'Equals'
+    },
+    storage_class: {
+      inputType: 'dropdown', // Dropdown for storage class
+      allowedValues: [
+        'MULTI_REGIONAL',
+        'REGIONAL',
+        'STANDARD',
+        'NEARLINE',
+        'COLDLINE',
+        'ARCHIVE',
+        'DURABLE_REDUCED_AVAILABILITY',
+      ],
+      operator:'Equals'
+    },
+    project_number: {
+      inputType: 'number', // Project number must be numeric
+      validation: {
+        required: true,
+        min: 1, // Minimum valid project number
+      },
+    },
+    labels: {
+      inputType: 'object', // Key-value pairs for labels
+      validation: {
+        regex: /^[a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+$/, // Example regex for key:value pairs
+      },
+    },
+    retention_policy: {
+      inputType: 'object', // Configuration for retention policy
+      fields: {
+        retention_period: {
+          inputType: 'number', // Retention period in seconds
+          validation: {
+            min: 1, // Minimum retention period
+          },
+        },
+        is_locked: {
+          inputType: 'boolean', // Whether the retention policy is locked
+        },
+      },
+    },
+    logging: {
+      inputType: 'object', // Logging configuration
+      fields: {
+        log_bucket: {
+          inputType: 'text', // Destination bucket for logs
+        },
+        log_object_prefix: {
+          inputType: 'text', // Prefix for log object names
+        },
+      },
+    },
+    encryption: {
+      inputType: 'object', // Encryption configuration
+      fields: {
+        default_kms_key_name: {
+          inputType: 'text', // KMS key name for encryption
+        },
+      },
+    },
+    // website: {
+    //   inputType: 'object', // Website configuration
+    //   fields: {
+    //     main_page_suffix: {
+    //       inputType: 'text', // Suffix for the main page
+    //     },
+    //     not_found_page: {
+    //       inputType: 'text', // Page to return for 404 errors
+    //     },
+    //   },
+    // },
+    // cors: {
+    //   inputType: 'array', // CORS configuration as an array of objects
+    //   itemFields: {
+    //     max_age_seconds: {
+    //       inputType: 'number', // Max age in seconds
+    //     },
+    //     method: {
+    //       inputType: 'text', // Allowed methods (comma-separated)
+    //     },
+    //     origin: {
+    //       inputType: 'text', // Allowed origins (comma-separated)
+    //     },
+    //     response_header: {
+    //       inputType: 'text', // Allowed response headers (comma-separated)
+    //     },
+    //   },
+    // },
+    // lifecycle: {
+    //   inputType: 'array', // Lifecycle management rules as an array of objects
+    //   itemFields: {
+    //     action: {
+    //       inputType: 'object', // Action to take
+    //       fields: {
+    //         type: {
+    //           inputType: 'dropdown', // Type of action (Delete, SetStorageClass)
+    //           allowedValues: ['Delete', 'SetStorageClass'],
+    //         },
+    //         storage_class: {
+    //           inputType: 'dropdown', // Target storage class
+    //           allowedValues: [
+    //             'MULTI_REGIONAL',
+    //             'REGIONAL',
+    //             'STANDARD',
+    //             'NEARLINE',
+    //             'COLDLINE',
+    //             'ARCHIVE',
+    //             'DURABLE_REDUCED_AVAILABILITY',
+    //           ],
+    //         },
+    //       },
+    //     },
+    //     condition: {
+    //       inputType: 'object', // Condition for action to take
+    //       fields: {
+    //         age_days: {
+    //           inputType: 'number', // Age of an object in days
+    //         },
+    //         created_before: {
+    //           inputType: 'date', // Date condition
+    //         },
+    //         is_live: {
+    //           inputType: 'boolean', // Relevant only for versioned objects
+    //         },
+    //       },
+    //     },
+    //   },
+    // },
     // Additional properties can be added here...
   };
 
@@ -276,6 +422,228 @@ export function InspecComplianceComponent() {
     saveRubyFile(rubyContent);
   };
 
+
+
+  // Function to render a condition for google_compute_firewall
+  const renderFirewallCondition = (condition, index,) => {
+    const propertyConfig = firewallPropertiesConfig[condition.property];
+
+    const validateValue = (value) => {
+
+      if (value === "") return true;
+
+      if (propertyConfig?.validation?.regex) {
+        // alert('Please check the value you have enter.');
+        return propertyConfig.validation.regex.test(value);
+      }
+      return true; // If no regex, assume valid
+    };
+
+    return (
+      <div key={index} className="flex items-center space-x-2">
+        {/* Property Selection */}
+        <Select
+          value={condition.property}
+          onValueChange={(value) => handleConditionChange(index, 'property', value, firewallPropertiesConfig)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(firewallPropertiesConfig).map((prop) => (
+              <SelectItem key={prop} value={prop}>
+                {prop}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Operator Selection */}
+        <Select
+          value={condition.operator}
+          onValueChange={(value) => handleConditionChange(index, 'operator', value, firewallPropertiesConfig)}
+          disabled={propertyConfig?.operator}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Operator" />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op} value={op}>
+                {op}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Value Field based on Property */}
+        {propertyConfig?.inputType === 'number' ? (
+          <Input
+            value={condition.value}
+            onChange={(e) => { validateValue(e.target.value) ? handleConditionChange(index, 'value', e.target.value,firewallPropertiesConfig) : alert('Please check the value you have enter.') }}
+            placeholder={`Enter ${condition.property}`}
+            type="number"
+            min={propertyConfig.validation?.min}
+            max={propertyConfig.validation?.max}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        ) : propertyConfig?.inputType === 'dropdown' ? (
+          <Select
+            value={condition.value}
+            onValueChange={(value) => handleConditionChange(index, 'value', value, firewallPropertiesConfig)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${condition.property}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {propertyConfig.allowedValues.map((val) => (
+                <SelectItem key={val} value={val}>
+                  {val}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            value={condition.value}
+            onChange={(e) => { validateValue(e.target.value) ? handleConditionChange(index, 'value', e.target.value, firewallPropertiesConfig) : alert('Please check the value you have enter.') }}
+            placeholder={`Enter ${condition.property}`}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        )}
+
+        {/* Add or Remove Condition */}
+        <Button variant="outline" size="icon" onClick={addCondition}>
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+        {conditions.length > 1 && (
+          <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+
+
+  // Function to render a condition for google_storage_bucket
+  const renderBucketCondition = (condition, index) => {
+    const propertyConfig = storageBucketConfig[condition.property];
+
+    const validateValue = (value) => {
+      if (propertyConfig?.validation?.regex) {
+        return propertyConfig.validation.regex.test(value);
+      }
+      return true; // If no regex, assume valid
+    };
+
+    return (
+      <div key={index} className="flex items-center space-x-2">
+        {/* Property Selection */}
+        <Select
+          value={condition.property}
+          onValueChange={(value) => handleConditionChange(index, 'property', value, storageBucketConfig)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(storageBucketConfig).map((prop) => (
+              <SelectItem key={prop} value={prop}>
+                {prop}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Operator Selection */}
+        <Select
+          value={condition.operator}
+          onValueChange={(value) => handleConditionChange(index, 'operator', value, storageBucketConfig)}
+          disabled={propertyConfig?.operator}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Operator" />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op} value={op}>
+                {op}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Value Field based on Property */}
+        {propertyConfig?.inputType === 'dropdown' ? (
+          <Select
+            value={condition.value}
+            onValueChange={(value) => handleConditionChange(index, 'value', value, storageBucketConfig)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${condition.property}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {propertyConfig.allowedValues.map((val) => (
+                <SelectItem key={val} value={val}>
+                  {val}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : propertyConfig?.inputType === 'number' ? (
+          <Input
+            value={condition.value}
+            onChange={(e) => handleConditionChange(index, 'value', e.target.value, storageBucketConfig)}
+            placeholder={`Enter ${condition.property}`}
+            type="number"
+            min={propertyConfig.validation?.min}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        ) : (
+          <Input
+            value={condition.value}
+            onChange={(e) => handleConditionChange(index, 'value', e.target.value, storageBucketConfig)}
+            placeholder={`Enter ${condition.property}`}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        )}
+
+        {/* Add or Remove Condition */}
+        <Button variant="outline" size="icon" onClick={addCondition}>
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+        {conditions.length > 1 && (
+          <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+
+
+  // Main component rendering conditions
+  const renderConditions = (resource, conditions) => {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Conditions</h3>
+        {conditions.map((condition, index) => {
+          if (resource === 'google_compute_firewall') {
+            return renderFirewallCondition(condition, index);
+          } else if (resource === 'google_storage_bucket') {
+            return renderBucketCondition(condition, index);
+          }
+          return null; // or some fallback UI
+        })}
+      </div>
+    );
+  };
+
+
+
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
@@ -363,132 +731,12 @@ export function InspecComplianceComponent() {
         )}
 
 
-
-        {resource && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Conditions</h3>
-            {/* {conditions.map((condition, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <Select value={condition.property} onValueChange={(value) => handleConditionChange(index, 'property', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Property" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {propertiesByResource[resource]?.map((prop) => (
-                      <SelectItem key={prop} value={prop}>
-                        {prop}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={condition.operator} onValueChange={(value) => handleConditionChange(index, 'operator', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Operator" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operators.map((op) => (
-                      <SelectItem key={op} value={op}>
-                        {op}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={condition.value}
-                  onChange={(e) => handleConditionChange(index, 'value', e.target.value)}
-                  placeholder="Value"
-                />
-                <Button variant="outline" size="icon" onClick={addCondition}>
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
-                {conditions.length > 1 && (
-                  <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            ))} */}
-
-
-            {conditions.map((condition, index) => {
-              const propertyConfig = firewallPropertiesConfig[condition.property];
-
-              return (
-                <div key={index} className="flex items-center space-x-2">
-                  {/* Property Selection */}
-                  <Select value={condition.property} onValueChange={(value) => handleConditionChange(index, 'property', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Property" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(firewallPropertiesConfig).map((prop) => (
-                        <SelectItem key={prop} value={prop}>
-                          {prop}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Operator Selection */}
-                  <Select value={condition.operator} onValueChange={(value) => handleConditionChange(index, 'operator', value)} disabled={propertyConfig?.operator}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {operators.map((op) => (
-                        <SelectItem key={op} value={op}>
-                          {op}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Value Field based on Property */}
-                  {condition.property === 'priority' ? (
-                    <Input
-                      value={condition.value}
-                      onChange={(e) => handleConditionChange(index, 'value', e.target.value)}
-                      placeholder="Priority (0-65535)"
-                      type="number"
-                      min="0"
-                      max="65535"
-                    />
-                  ) :
-
-                    propertyConfig?.inputType === 'dropdown' ? (
-                      <Select value={condition.value} onValueChange={(value) => handleConditionChange(index, 'value', value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Value" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {propertyConfig.allowedValues.map((val) => (
-                            <SelectItem key={val} value={val}>
-                              {val}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input value={condition.value} onChange={(e) => handleConditionChange(index, 'value', e.target.value)} placeholder="Value" />
-                    )}
-
-                  {/* Add or Remove Condition */}
-                  <Button variant="outline" size="icon" onClick={addCondition}>
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                  {conditions.length > 1 && (
-                    <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-
-
-
-          </div>
+        {resource && renderConditions(
+          resource,
+          conditions
         )}
+
+
       </CardContent>
       <div className='flex' >
         <CardFooter>
