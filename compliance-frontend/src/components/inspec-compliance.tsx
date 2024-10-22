@@ -19,13 +19,13 @@ export function InspecComplianceComponent() {
 
   const [loading, setLoading] = useState(false);
 
-  const resources = ['google_compute_firewall', 'google_compute_instance', 'google_storage_bucket']
+  const resources = ['google_compute_firewall', 'google_compute_zone', 'google_storage_bucket', 'google_compute_global_address']
 
-  const propertiesByResource = {
-    google_compute_firewall: ['direction', 'priority', 'source_ranges', 'network', 'target_tags', 'allowed', 'denied', 'disabled', 'destination_ranges', 'log_config', 'source_tags', 'source_service_accounts', 'target_service_accounts', 'creation_timestamp', 'description', 'id', 'name'],
-    google_compute_instance: ['machine_type', 'status', 'tags', 'zone', 'disks'],
-    google_storage_bucket: ['location', 'storage_class', 'public_access_prevention'],
-  }
+  // const propertiesByResource = {
+  //   google_compute_firewall: ['direction', 'priority', 'source_ranges', 'network', 'target_tags', 'allowed', 'denied', 'disabled', 'destination_ranges', 'log_config', 'source_tags', 'source_service_accounts', 'target_service_accounts', 'creation_timestamp', 'description', 'id', 'name'],
+  //   google_compute_instance: ['machine_type', 'status', 'tags', 'zone', 'disks'],
+  //   google_storage_bucket: ['location', 'storage_class', 'public_access_prevention'],
+  // }
 
   const operators = ['Equals', 'Not Equals', 'Greater Than', 'Less Than', 'Contains', 'Does Not Contain']
 
@@ -153,12 +153,12 @@ export function InspecComplianceComponent() {
         required: true, // The name is mandatory
         regex: /^[a-z0-9-]+$/, // Example regex for bucket name validation
       },
-      operator:'Equals'
+      operator: 'Equals'
     },
     location: {
       inputType: 'dropdown', // Dropdown for bucket location
       allowedValues: ['US', 'EUROPE-WEST2', 'ASIA', 'REGIONAL', 'MULTI_REGIONAL'], // Example locations
-      operator:'Equals'
+      operator: 'Equals'
     },
     storage_class: {
       inputType: 'dropdown', // Dropdown for storage class
@@ -171,7 +171,7 @@ export function InspecComplianceComponent() {
         'ARCHIVE',
         'DURABLE_REDUCED_AVAILABILITY',
       ],
-      operator:'Equals'
+      operator: 'Equals'
     },
     project_number: {
       inputType: 'number', // Project number must be numeric
@@ -219,76 +219,103 @@ export function InspecComplianceComponent() {
         },
       },
     },
-    // website: {
-    //   inputType: 'object', // Website configuration
-    //   fields: {
-    //     main_page_suffix: {
-    //       inputType: 'text', // Suffix for the main page
-    //     },
-    //     not_found_page: {
-    //       inputType: 'text', // Page to return for 404 errors
-    //     },
-    //   },
-    // },
-    // cors: {
-    //   inputType: 'array', // CORS configuration as an array of objects
-    //   itemFields: {
-    //     max_age_seconds: {
-    //       inputType: 'number', // Max age in seconds
-    //     },
-    //     method: {
-    //       inputType: 'text', // Allowed methods (comma-separated)
-    //     },
-    //     origin: {
-    //       inputType: 'text', // Allowed origins (comma-separated)
-    //     },
-    //     response_header: {
-    //       inputType: 'text', // Allowed response headers (comma-separated)
-    //     },
-    //   },
-    // },
-    // lifecycle: {
-    //   inputType: 'array', // Lifecycle management rules as an array of objects
-    //   itemFields: {
-    //     action: {
-    //       inputType: 'object', // Action to take
-    //       fields: {
-    //         type: {
-    //           inputType: 'dropdown', // Type of action (Delete, SetStorageClass)
-    //           allowedValues: ['Delete', 'SetStorageClass'],
-    //         },
-    //         storage_class: {
-    //           inputType: 'dropdown', // Target storage class
-    //           allowedValues: [
-    //             'MULTI_REGIONAL',
-    //             'REGIONAL',
-    //             'STANDARD',
-    //             'NEARLINE',
-    //             'COLDLINE',
-    //             'ARCHIVE',
-    //             'DURABLE_REDUCED_AVAILABILITY',
-    //           ],
-    //         },
-    //       },
-    //     },
-    //     condition: {
-    //       inputType: 'object', // Condition for action to take
-    //       fields: {
-    //         age_days: {
-    //           inputType: 'number', // Age of an object in days
-    //         },
-    //         created_before: {
-    //           inputType: 'date', // Date condition
-    //         },
-    //         is_live: {
-    //           inputType: 'boolean', // Relevant only for versioned objects
-    //         },
-    //       },
-    //     },
-    //   },
-    // },
-    // Additional properties can be added here...
+
   };
+
+
+  const zonePropertyConfig = {
+    state: {
+      inputType: 'dropdown',
+      allowedValues: ['DEPRECATED', 'OBSOLETE', 'DELETED'],
+      operator: 'Equals',
+    },
+    description: {
+      inputType: 'text',
+    },
+    id: {
+      inputType: 'number',
+      operator: 'Equals',
+      validation: {
+        min: 1, // Ensure the ID is a positive number
+      },
+    },
+    name: {
+      inputType: 'text',
+      validation: {
+        required: true, // Name is mandatory
+        regex: /^[a-z0-9-]+$/, // Example regex for valid names
+      },
+      operator: 'Equals',
+    },
+    status: {
+      inputType: 'dropdown',
+      allowedValues: ['UP', 'DOWN'],
+      operator: 'Equals',
+    },
+    available_cpu_platforms: {
+      inputType: 'text',
+      operator: 'Contains', // Allow searching for specific platforms
+    },
+  };
+
+
+  const globalAddressConfig = {
+    address: {
+      inputType: 'text', // Static external IP address
+      validation: {
+        required: true, // Address is mandatory
+        regex: /^(?:\d{1,3}\.){3}\d{1,3}$/, // Basic validation for IPv4
+      },
+      operator: 'Equals',
+    },
+
+    description: {
+      inputType: 'text', // Optional description
+    },
+    id: {
+      inputType: 'number', // Unique identifier
+      operator: 'Equals',
+      validation: {
+        required: true, // ID is mandatory
+        min: 1, // Ensure the ID is a positive number
+      },
+    },
+    name: {
+      inputType: 'text', // Name of the resource
+      validation: {
+        required: true, // Name is mandatory
+        regex: /^[a-z]([-a-z0-9]*[a-z0-9])?$/, // RFC1035 compliant regex
+      },
+      operator: 'Equals',
+    },
+    labels: {
+      inputType: 'text', // Key-value pairs for labels
+      validation: {
+        regex: /^[a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+$/, // Validation for key:value pairs
+      },
+    },
+
+    ip_version: {
+      inputType: 'dropdown', // IP version
+      allowedValues: ['IPV4', 'IPV6'],
+      operator: 'Equals',
+    },
+
+    
+    address_type: {
+      inputType: 'dropdown', // Type of address to reserve
+      allowedValues: ['EXTERNAL', 'INTERNAL'],
+      operator: 'Equals',
+    },
+    purpose: {
+      inputType: 'dropdown', // Purpose of the resource
+      allowedValues: ['VPC_PEERING', 'PRIVATE_SERVICE_CONNECT'],
+      operator: 'Equals',
+    },
+
+  };
+
+
 
 
 
@@ -349,23 +376,133 @@ export function InspecComplianceComponent() {
 
       controlString += `    describe "Bucket: #{bucket_name} in Project: #{project_id}" do\n`
 
-      // Check for public access prevention
-      controlString += `      it "should not be publicly accessible" do\n`
-      controlString += `        bucket = google_storage_bucket(project: ${scope === 'all' ? 'project_id' : `"${selectedProject}"`}, name: bucket_name)\n`
-      controlString += `        expect(bucket.public_access_prevention).to eq 'enforced'\n`  // Check for public access prevention
 
-      // Additional checks for bucket properties
-      controlString += `      it "should have the correct storage class" do\n`
-      controlString += `        expect(bucket.storage_class).to eq 'STANDARD'\n`  // Example check for storage class
-      controlString += '      end\n'
 
-      controlString += `      it "should be located in the correct region" do\n`
-      controlString += `        expect(bucket.location).to eq 'us-central1'\n`  // Example check for location
-      controlString += '      end\n'
+      conditions.forEach((condition) => {
+        const { property, operator, value } = condition
+
+        controlString += `      it "should have correct ${property}" do\n`
+        controlString += `        bucket = google_storage_bucket(project: ${scope === 'all' ? 'project_id' : `"${selectedProject}"`}, name: bucket_name)\n`
+
+        let expectation = ''
+        switch (operator) {
+          case 'Equals':
+            expectation = `expect(bucket.${property}).to eq '${value}'`
+            break
+          case 'Not Equals':
+            expectation = `expect(bucket.${property}).not_to eq '${value}'`
+            break
+          case 'Greater Than':
+            expectation = `expect(bucket.${property}).to be > ${value}`
+            break
+          case 'Less Than':
+            expectation = `expect(bucket.${property}).to be < ${value}`
+            break
+          case 'Contains':
+            expectation = `expect(bucket.${property}).to include '${value}'`
+            break
+          case 'Does Not Contain':
+            expectation = `expect(bucket.${property}).not_to include '${value}'`
+            break
+          default:
+            expectation = `expect(bucket.${property}).to eq '${value}'`
+        }
+        controlString += `        ${expectation}\n`
+        controlString += '      end\n'
+      })
 
       controlString += '    end\n'
       if (scope === 'all') controlString += '  end\nend\n'
+    } else if (resource === 'google_compute_zone') {
+      if (scope === 'all') {
+        controlString = `google_projects.project_ids.each do |project_id|\n  google_compute_zones(project: project_id).zone_names.each do |zone_name|\n`;
+      } else {
+        controlString = `google_compute_zones(project: "${selectedProject}").zone_names.each do |zone_name|\n`;
+      }
+
+      controlString += `    describe "Zone: #{zone_name} in Project: #{project_id}" do\n`;
+
+      conditions.forEach((condition) => {
+        const { property, operator, value } = condition;
+
+        controlString += `      it "should have correct ${property}" do\n`;
+        controlString += `        zone = google_compute_zone(project: ${scope === 'all' ? 'project_id' : `"${selectedProject}"`}, name: zone_name)\n`;
+
+        let expectation = '';
+        switch (operator) {
+          case 'Equals':
+            expectation = `expect(zone.${property}).to eq '${value}'`;
+            break;
+          case 'Not Equals':
+            expectation = `expect(zone.${property}).not_to eq '${value}'`;
+            break;
+          case 'Greater Than':
+            expectation = `expect(zone.${property}).to be > ${value}`;
+            break;
+          case 'Less Than':
+            expectation = `expect(zone.${property}).to be < ${value}`;
+            break;
+          case 'Contains':
+            expectation = `expect(zone.${property}).to include '${value}'`;
+            break;
+          case 'Does Not Contain':
+            expectation = `expect(zone.${property}).not_to include '${value}'`;
+            break;
+          default:
+            expectation = `expect(zone.${property}).to eq '${value}'`;
+        }
+        controlString += `        ${expectation}\n`;
+        controlString += '      end\n';
+      });
+
+      controlString += '    end\n';
+      if (scope === 'all') controlString += '  end\nend\n';
+    } else if (resource === 'google_compute_global_address') {
+      if (scope === 'all') {
+        controlString = `google_projects.project_ids.each do |project_id|\n  google_compute_global_addresses(project: project_id).global_address_names.each do |address_name|\n`;
+      } else {
+        controlString = `google_compute_global_addresses(project: "${selectedProject}").global_address_names.each do |address_name|\n`;
+      }
+
+      controlString += `    describe "Global Address: #{address_name} in Project: #{project_id}" do\n`;
+
+      conditions.forEach((condition) => {
+        const { property, operator, value } = condition;
+
+        controlString += `      it "should have correct ${property}" do\n`;
+        controlString += `        address = google_compute_global_address(project: ${scope === 'all' ? 'project_id' : `"${selectedProject}"`}, name: address_name)\n`;
+
+        let expectation = '';
+        switch (operator) {
+          case 'Equals':
+            expectation = `expect(address.${property}).to eq '${value}'`;
+            break;
+          case 'Not Equals':
+            expectation = `expect(address.${property}).not_to eq '${value}'`;
+            break;
+          case 'Greater Than':
+            expectation = `expect(address.${property}).to be > ${value}`;
+            break;
+          case 'Less Than':
+            expectation = `expect(address.${property}).to be < ${value}`;
+            break;
+          case 'Contains':
+            expectation = `expect(address.${property}).to include '${value}'`;
+            break;
+          case 'Does Not Contain':
+            expectation = `expect(address.${property}).not_to include '${value}'`;
+            break;
+          default:
+            expectation = `expect(address.${property}).to eq '${value}'`;
+        }
+        controlString += `        ${expectation}\n`;
+        controlString += '      end\n';
+      });
+
+      controlString += '    end\n';
+      if (scope === 'all') controlString += '  end\nend\n';
     }
+
 
     setControlStrings([...controlStrings, controlString])
   }
@@ -480,7 +617,7 @@ export function InspecComplianceComponent() {
         {propertyConfig?.inputType === 'number' ? (
           <Input
             value={condition.value}
-            onChange={(e) => { validateValue(e.target.value) ? handleConditionChange(index, 'value', e.target.value,firewallPropertiesConfig) : alert('Please check the value you have enter.') }}
+            onChange={(e) => { validateValue(e.target.value) ? handleConditionChange(index, 'value', e.target.value, firewallPropertiesConfig) : alert('Please check the value you have enter.') }}
             placeholder={`Enter ${condition.property}`}
             type="number"
             min={propertyConfig.validation?.min}
@@ -624,6 +761,231 @@ export function InspecComplianceComponent() {
   };
 
 
+  // Function to render a condition for google_compute_zone
+  const renderZoneCondition = (condition, index) => {
+    const propertyConfig = zonePropertyConfig[condition.property];
+
+    const validateValue = (value) => {
+      if (value === "") return true; // Allow empty input
+
+      if (propertyConfig?.validation?.regex) {
+        return propertyConfig.validation.regex.test(value);
+      }
+      return true; // If no regex, assume valid
+    };
+
+    return (
+      <div key={index} className="flex items-center space-x-2">
+        {/* Property Selection */}
+        <Select
+          value={condition.property}
+          onValueChange={(value) => handleConditionChange(index, 'property', value, zonePropertyConfig)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(zonePropertyConfig).map((prop) => (
+              <SelectItem key={prop} value={prop}>
+                {prop}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Operator Selection */}
+        <Select
+          value={condition.operator}
+          onValueChange={(value) => handleConditionChange(index, 'operator', value, zonePropertyConfig)}
+          disabled={propertyConfig?.operator}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Operator" />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op} value={op}>
+                {op}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Value Field based on Property */}
+        {propertyConfig?.inputType === 'dropdown' ? (
+          <Select
+            value={condition.value}
+            onValueChange={(value) => handleConditionChange(index, 'value', value, zonePropertyConfig)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${condition.property}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {propertyConfig.allowedValues.map((val) => (
+                <SelectItem key={val} value={val}>
+                  {val}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : propertyConfig?.inputType === 'number' ? (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (validateValue(value)) {
+                handleConditionChange(index, 'value', value, zonePropertyConfig);
+              } else {
+                alert('Please check the value you have entered.');
+              }
+            }}
+            placeholder={`Enter ${condition.property}`}
+            type="number"
+            min={propertyConfig.validation?.min}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        ) : (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (validateValue(value)) {
+                handleConditionChange(index, 'value', value, zonePropertyConfig);
+              } else {
+                alert('Please check the value you have entered.');
+              }
+            }}
+            placeholder={`Enter ${condition.property}`}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        )}
+
+        {/* Add or Remove Condition */}
+        <Button variant="outline" size="icon" onClick={addCondition}>
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+        {conditions.length > 1 && (
+          <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+
+  const renderGlobalAddressCondition = (condition, index) => {
+    const propertyConfig = globalAddressConfig[condition.property];
+
+    const validateValue = (value) => {
+      if (propertyConfig?.validation?.regex) {
+        return propertyConfig.validation.regex.test(value);
+      }
+      return true; // If no regex, assume valid
+    };
+
+    return (
+      <div key={index} className="flex items-center space-x-2">
+        {/* Property Selection */}
+        <Select
+          value={condition.property}
+          onValueChange={(value) => handleConditionChange(index, 'property', value, globalAddressConfig)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(globalAddressConfig).map((prop) => (
+              <SelectItem key={prop} value={prop}>
+                {prop}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Operator Selection */}
+        <Select
+          value={condition.operator}
+          onValueChange={(value) => handleConditionChange(index, 'operator', value, globalAddressConfig)}
+          disabled={propertyConfig?.operator}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Operator" />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op} value={op}>
+                {op}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Value Field based on Property */}
+        {propertyConfig?.inputType === 'dropdown' ? (
+          <Select
+            value={condition.value}
+            onValueChange={(value) => handleConditionChange(index, 'value', value, globalAddressConfig)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${condition.property}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {propertyConfig.allowedValues.map((val) => (
+                <SelectItem key={val} value={val}>
+                  {val}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : propertyConfig?.inputType === 'number' ? (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (validateValue(value)) {
+                handleConditionChange(index, 'value', value, globalAddressConfig);
+              } else {
+                alert('Please check the value you have entered.');
+              }
+            }}
+            placeholder={`Enter ${condition.property}`}
+            type="number"
+            min={propertyConfig.validation?.min}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        ) : (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (validateValue(value)) {
+                handleConditionChange(index, 'value', value, globalAddressConfig);
+              } else {
+                alert('Please check the value you have entered.');
+              }
+            }}
+            placeholder={`Enter ${condition.property}`}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        )}
+
+        {/* Add or Remove Condition */}
+        <Button variant="outline" size="icon" onClick={addCondition}>
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+        {conditions.length > 1 && (
+          <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+
+
+
 
   // Main component rendering conditions
   const renderConditions = (resource, conditions) => {
@@ -635,6 +997,10 @@ export function InspecComplianceComponent() {
             return renderFirewallCondition(condition, index);
           } else if (resource === 'google_storage_bucket') {
             return renderBucketCondition(condition, index);
+          } else if (resource === 'google_compute_zone') {
+            return renderZoneCondition(condition, index);
+          } else if (resource === 'google_compute_global_address') {
+            return renderGlobalAddressCondition(condition, index);
           }
           return null; // or some fallback UI
         })}
