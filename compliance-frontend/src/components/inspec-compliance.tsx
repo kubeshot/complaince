@@ -19,7 +19,7 @@ export function InspecComplianceComponent() {
 
   const [loading, setLoading] = useState(false);
 
-  const resources = ['google_compute_firewall', 'google_compute_zone', 'google_storage_bucket', 'google_compute_global_address']
+  const resources = ['google_compute_firewall', 'google_compute_zone', 'google_storage_bucket', 'google_compute_global_address', 'google_compute_address', 'google_compute_global_operation']
 
   // const propertiesByResource = {
   //   google_compute_firewall: ['direction', 'priority', 'source_ranges', 'network', 'target_tags', 'allowed', 'denied', 'disabled', 'destination_ranges', 'log_config', 'source_tags', 'source_service_accounts', 'target_service_accounts', 'creation_timestamp', 'description', 'id', 'name'],
@@ -301,7 +301,7 @@ export function InspecComplianceComponent() {
       operator: 'Equals',
     },
 
-    
+
     address_type: {
       inputType: 'dropdown', // Type of address to reserve
       allowedValues: ['EXTERNAL', 'INTERNAL'],
@@ -314,6 +314,131 @@ export function InspecComplianceComponent() {
     },
 
   };
+
+  const googleComputeAddressConfig = {
+    address: {
+      inputType: 'text', // The static external IP address represented by this resource
+      validation: {
+        required: true, // The address is mandatory
+        regex: /^(?:\d{1,3}\.){3}\d{1,3}$/, // Regex to validate IPv4 address
+      },
+      operator: 'Equals',
+    },
+    address_type: {
+      inputType: 'dropdown', // Dropdown for selecting address type
+      allowedValues: ['INTERNAL', 'EXTERNAL'], // Possible values
+      operator: 'Equals',
+    },
+
+    id: {
+      inputType: 'text', // Unique identifier for the resource
+      validation: {
+        required: false,
+      },
+    },
+    name: {
+      inputType: 'text', // Name of the resource
+      validation: {
+        required: true, // The name is mandatory
+        regex: /^[a-z]([-a-z0-9]*[a-z0-9])?$/, // Name regex validation
+      },
+      operator: 'Equals',
+    },
+    purpose: {
+      inputType: 'dropdown', // Dropdown for purpose selection
+      allowedValues: ['GCE_ENDPOINT', 'SHARED_LOADBALANCER_VIP', 'VPC_PEERING'], // Possible values
+      operator: 'Equals',
+    },
+    network_tier: {
+      inputType: 'dropdown', // Dropdown for network tier selection
+      allowedValues: ['PREMIUM', 'STANDARD'], // Possible values
+      operator: 'Equals',
+    },
+    subnetwork: {
+      inputType: 'text', // URL of the subnetwork
+      validation: {
+        required: false,
+      },
+    },
+    users: {
+      inputType: 'array', // Array for storing URLs of resources using this address
+      validation: {
+        required: false,
+        regex: /^https?:\/\/[^\s]+$/, // Regex for validating URLs
+      },
+    },
+    labels: {
+      inputType: 'text', // Key-value pairs for labels
+      validation: {
+        required: false,
+        regex: /^[a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+$/, // Example regex for key:value pairs
+      },
+    },
+
+    status: {
+      inputType: 'dropdown', // Dropdown for status selection
+      allowedValues: ['RESERVING', 'RESERVED', 'IN_USE'], // Possible values
+      operator: 'Equals',
+    },
+    region: {
+      inputType: 'text', // URL of the region where the address resides
+      validation: {
+        required: false,
+      },
+    },
+  };
+
+  const globalOperationPropertiesConfig = {
+    zone: {
+      inputType: 'text', // The URL of the zone
+      validation: {
+        regex: /^https:\/\/www\.googleapis\.com\/compute\/v1\/projects\/[^\/]+\/zones\/[^\/]+$/, // Example regex for zone URL
+      },
+      operator: 'Equals', // Default operator for zone
+    },
+    client_operation_id: {
+      inputType: 'text', // ID of the operation request
+      validation: {
+        required: false, // Optional field
+      },
+      operator: 'Equals',
+    },
+    operation_type: {
+      inputType: 'dropdown', // Dropdown for operation type
+      allowedValues: ['insert', 'update', 'delete'], // Possible operation types
+      operator: 'Equals',
+    },
+    user: {
+      inputType: 'text', // User who requested the operation
+      validation: {
+        required: false, // Optional field
+        regex: /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, // Regex for email validation
+      },
+      operator: 'Equals',
+    },
+    progress: {
+      inputType: 'number', // Progress indicator from 0 to 100
+      validation: {
+        min: 0,
+        max: 100,
+      },
+      operator: 'Equals', // Default operator for progress
+    },
+    
+    status: {
+      inputType: 'dropdown', // Dropdown for operation status
+      allowedValues: ['PENDING', 'PENDINGPENDING', 'DONE'], // Possible status values
+      operator: 'Equals',
+    },
+    status_message: {
+      inputType: 'text', // Optional status message
+      validation: {
+        required: false, // Optional field
+      },
+    },
+  };
+
+
 
 
 
@@ -501,7 +626,97 @@ export function InspecComplianceComponent() {
 
       controlString += '    end\n';
       if (scope === 'all') controlString += '  end\nend\n';
+    } else if (resource === 'google_compute_address') {
+      if (scope === 'all') {
+        controlString = `google_projects.project_ids.each do |project_id|\n  google_compute_addresses(project: project_id).address_names.each do |address_name|\n`;
+      } else {
+        controlString = `google_compute_addresses(project: "${selectedProject}").address_names.each do |address_name|\n`;
+      }
+
+      controlString += `    describe "Compute Address: #{address_name} in Project: #{project_id}" do\n`;
+
+      conditions.forEach((condition) => {
+        const { property, operator, value } = condition;
+
+        controlString += `      it "should have correct ${property}" do\n`;
+        controlString += `        address = google_compute_address(project: ${scope === 'all' ? 'project_id' : `"${selectedProject}"`}, name: address_name)\n`;
+
+        let expectation = '';
+        switch (operator) {
+          case 'Equals':
+            expectation = `expect(address.${property}).to eq '${value}'`;
+            break;
+          case 'Not Equals':
+            expectation = `expect(address.${property}).not_to eq '${value}'`;
+            break;
+          case 'Greater Than':
+            expectation = `expect(address.${property}).to be > ${value}`;
+            break;
+          case 'Less Than':
+            expectation = `expect(address.${property}).to be < ${value}`;
+            break;
+          case 'Contains':
+            expectation = `expect(address.${property}).to include '${value}'`;
+            break;
+          case 'Does Not Contain':
+            expectation = `expect(address.${property}).not_to include '${value}'`;
+            break;
+          default:
+            expectation = `expect(address.${property}).to eq '${value}'`;
+        }
+        controlString += `        ${expectation}\n`;
+        controlString += '      end\n';
+      });
+
+      controlString += '    end\n';
+      if (scope === 'all') controlString += '  end\nend\n';
+    } else if (resource === 'google_compute_global_operation') {
+      if (scope === 'all') {
+        controlString = `google_projects.project_ids.each do |project_id|\n  google_compute_global_operations(project: project_id).operation_names.each do |operation_name|\n`;
+      } else {
+        controlString = `google_compute_global_operations(project: "${selectedProject}").operation_names.each do |operation_name|\n`;
+      }
+
+      controlString += `    describe "Global Operation: #{operation_name} in Project: #{project_id}" do\n`;
+
+      conditions.forEach((condition) => {
+        const { property, operator, value } = condition;
+
+        controlString += `      it "should have correct ${property}" do\n`;
+        controlString += `        operation = google_compute_global_operation(project: ${scope === 'all' ? 'project_id' : `"${selectedProject}"`}, name: operation_name)\n`;
+
+        let expectation = '';
+        switch (operator) {
+          case 'Equals':
+            expectation = `expect(operation.${property}).to eq '${value}'`;
+            break;
+          case 'Not Equals':
+            expectation = `expect(operation.${property}).not_to eq '${value}'`;
+            break;
+          case 'Greater Than':
+            expectation = `expect(operation.${property}).to be > ${value}`;
+            break;
+          case 'Less Than':
+            expectation = `expect(operation.${property}).to be < ${value}`;
+            break;
+          case 'Contains':
+            expectation = `expect(operation.${property}).to include '${value}'`;
+            break;
+          case 'Does Not Contain':
+            expectation = `expect(operation.${property}).not_to include '${value}'`;
+            break;
+          default:
+            expectation = `expect(operation.${property}).to eq '${value}'`;
+        }
+        controlString += `        ${expectation}\n`;
+        controlString += '      end\n';
+      });
+
+      controlString += '    end\n';
+      if (scope === 'all') controlString += '  end\nend\n';
     }
+
+
 
 
     setControlStrings([...controlStrings, controlString])
@@ -661,8 +876,6 @@ export function InspecComplianceComponent() {
       </div>
     );
   };
-
-
 
   // Function to render a condition for google_storage_bucket
   const renderBucketCondition = (condition, index) => {
@@ -983,6 +1196,216 @@ export function InspecComplianceComponent() {
     );
   };
 
+  const renderAddressCondition = (condition, index) => {
+    const propertyConfig = googleComputeAddressConfig[condition.property];
+
+    const validateValue = (value) => {
+      if (value === "") return true; // Allow empty value
+
+      if (propertyConfig?.validation?.regex) {
+        return propertyConfig.validation.regex.test(value);
+      }
+      return true; // If no regex, assume valid
+    };
+
+    return (
+      <div key={index} className="flex items-center space-x-2">
+        {/* Property Selection */}
+        <Select
+          value={condition.property}
+          onValueChange={(value) => handleConditionChange(index, 'property', value, googleComputeAddressConfig)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(googleComputeAddressConfig).map((prop) => (
+              <SelectItem key={prop} value={prop}>
+                {prop}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Operator Selection */}
+        <Select
+          value={condition.operator}
+          onValueChange={(value) => handleConditionChange(index, 'operator', value, googleComputeAddressConfig)}
+          disabled={propertyConfig?.operator}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Operator" />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op} value={op}>
+                {op}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Value Field based on Property */}
+        {propertyConfig?.inputType === 'dropdown' ? (
+          <Select
+            value={condition.value}
+            onValueChange={(value) => handleConditionChange(index, 'value', value, googleComputeAddressConfig)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${condition.property}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {propertyConfig.allowedValues.map((val) => (
+                <SelectItem key={val} value={val}>
+                  {val}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : propertyConfig?.inputType === 'number' ? (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              validateValue(e.target.value)
+                ? handleConditionChange(index, 'value', e.target.value, googleComputeAddressConfig)
+                : alert('Please check the value you have entered.');
+            }}
+            placeholder={`Enter ${condition.property}`}
+            type="number"
+            min={propertyConfig.validation?.min}
+            max={propertyConfig.validation?.max}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        ) : (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              validateValue(e.target.value)
+                ? handleConditionChange(index, 'value', e.target.value, googleComputeAddressConfig)
+                : alert('Please check the value you have entered.');
+            }}
+            placeholder={`Enter ${condition.property}`}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        )}
+
+        {/* Add or Remove Condition */}
+        <Button variant="outline" size="icon" onClick={addCondition}>
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+        {conditions.length > 1 && (
+          <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  // Function to render a condition for google_compute_global_operation
+  const renderGlobalOperationCondition = (condition, index) => {
+    const propertyConfig = globalOperationPropertiesConfig[condition.property];
+
+    const validateValue = (value) => {
+      if (value === "") return true;
+
+      if (propertyConfig?.validation?.regex) {
+        return propertyConfig.validation.regex.test(value);
+      }
+      return true; // If no regex, assume valid
+    };
+
+    return (
+      <div key={index} className="flex items-center space-x-2">
+        {/* Property Selection */}
+        <Select
+          value={condition.property}
+          onValueChange={(value) => handleConditionChange(index, 'property', value, globalOperationPropertiesConfig)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(globalOperationPropertiesConfig).map((prop) => (
+              <SelectItem key={prop} value={prop}>
+                {prop}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Operator Selection */}
+        <Select
+          value={condition.operator}
+          onValueChange={(value) => handleConditionChange(index, 'operator', value, globalOperationPropertiesConfig)}
+          disabled={propertyConfig?.operator}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Operator" />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op} value={op}>
+                {op}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Value Field based on Property */}
+        {propertyConfig?.inputType === 'number' ? (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              validateValue(e.target.value) ? handleConditionChange(index, 'value', e.target.value, globalOperationPropertiesConfig) : alert('Please check the value you have entered.');
+            }}
+            placeholder={`Enter ${condition.property}`}
+            type="number"
+            min={propertyConfig.validation?.min}
+            max={propertyConfig.validation?.max}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        ) : propertyConfig?.inputType === 'dropdown' ? (
+          <Select
+            value={condition.value}
+            onValueChange={(value) => handleConditionChange(index, 'value', value, globalOperationPropertiesConfig)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${condition.property}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {propertyConfig.allowedValues.map((val) => (
+                <SelectItem key={val} value={val}>
+                  {val}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            value={condition.value}
+            onChange={(e) => {
+              validateValue(e.target.value) ? handleConditionChange(index, 'value', e.target.value, globalOperationPropertiesConfig) : alert('Please check the value you have entered.');
+            }}
+            placeholder={`Enter ${condition.property}`}
+            className={validateValue(condition.value) ? '' : 'border-red-500'} // Add validation feedback
+          />
+        )}
+
+        {/* Add or Remove Condition */}
+        <Button variant="outline" size="icon" onClick={addCondition}>
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+        {conditions.length > 1 && (
+          <Button variant="outline" size="icon" onClick={() => deleteCondition(index)}>
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+
 
 
 
@@ -1001,7 +1424,12 @@ export function InspecComplianceComponent() {
             return renderZoneCondition(condition, index);
           } else if (resource === 'google_compute_global_address') {
             return renderGlobalAddressCondition(condition, index);
+          } else if (resource === 'google_compute_address') {
+            return renderAddressCondition(condition, index);
+          } else if (resource === 'google_compute_global_operation') {
+            return renderGlobalOperationCondition(condition, index);
           }
+
           return null; // or some fallback UI
         })}
       </div>
