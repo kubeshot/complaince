@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import os
 from flask_cors import CORS  # Import CORS
 import time
+import re
+
 
 
 # Load environment variables from .env file
@@ -88,21 +90,30 @@ from google.cloud import resourcemanager_v3
 @app.route('/save_file', methods=['POST'])
 def save_file():
 
-
     # Get the content from the request
     content = request.json.get('content')
+    selected_profile = request.json.get('selectedProfile')
+    resource = request.json.get('resource')
 
     print(content)
 
     if content is None:
         return jsonify({'error': 'No content provided'}), 400
+    if selected_profile is None:
+        return jsonify({'error': 'No profile specified'}), 400
+    if resource is None:
+        return jsonify({'error': 'No resource specified'}), 400
 
     # Define the file path
     # file_path = os.path.join('./controls/', 'compliance_control.rb')
 
-    timestamp = int(time.time())  # Get the current time as a timestamp
-    file_name = f'compliance_control_{timestamp}.rb'
-    file_path = os.path.join('./controls/', file_name)
+    folder_path = os.path.join('./available-controls/', selected_profile)
+
+    # timestamp = int(time.time())  # Get the current time as a timestamp
+    # file_name = f'compliance_control_{timestamp}.rb'
+    file_name = f'{resource}.rb'
+    # file_path = os.path.join('./controls/', file_name)
+    file_path = os.path.join(folder_path, file_name)
 
 
     # Write the content to the file
@@ -161,6 +172,158 @@ def get_projects():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
+
+AVAILABLE_CONTROLS_DIR = 'available-controls'
+
+@app.route('/api/create-folder', methods=['POST'])
+def create_folder():
+    # Get the profile name from the request JSON
+    data = request.get_json()
+    profile_name = data.get('profile_name', '').strip()
+
+    if not profile_name:
+        return jsonify({"error": "Profile name is required."}), 400
+
+    # Define the folder path
+    folder_path = os.path.join(AVAILABLE_CONTROLS_DIR, profile_name)
+
+    # Check if the folder already exists
+    if os.path.exists(folder_path):
+        return jsonify({"error": "Folder already exists."}), 409
+
+    try:
+        # Create the new folder
+        os.makedirs(folder_path)
+        return jsonify({"message": f"Folder '{profile_name}' created successfully."}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/fetch-folders', methods=['GET'])
+def fetch_folders():
+    try:
+        # List all folders in the available-controls directory
+        folder_names = [name for name in os.listdir(AVAILABLE_CONTROLS_DIR) if os.path.isdir(os.path.join(AVAILABLE_CONTROLS_DIR, name))]
+        return jsonify(folder_names), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/fetch_files/<selected_profile>', methods=['GET'])
+def fetch_files(selected_profile):
+    # Define the directory path based on the selected profile
+    folder_path = os.path.join('./available-controls/', selected_profile)
+
+    try:
+        # List all .rb files in the directory
+        files = [f for f in os.listdir(folder_path) if f.endswith('.rb')]
+        return jsonify({'files': files}), 200
+    except FileNotFoundError:
+        return jsonify({'error': 'Profile not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+# def parse_ruby_file(file_path):
+#     try:
+#         with open(file_path, 'r') as file:
+#             content = file.read()
+
+#         # Extracting resource
+#         resource_match = re.search(r'google_(\w+)_\w+', content)
+#         if resource_match:
+#             resource = f'google_{resource_match.group(1)}'
+#         else:
+#             resource = None
+
+#         # Extracting scope
+#         scope = 'all' if 'google_projects.project_ids' in content else 'single project'
+
+#         # Extracting conditions
+#         conditions = []
+
+#         # Find all `expect` lines
+#         expect_matches = re.findall(
+#             r'it "should have correct (.*?)" do\s+(\w+) = google_(\w+)\(project: \w+, name: \w+\)\s+expect\((\w+)\.(\w+)\)\.\s*(to\s+)?(eq|not_to\s+eq|be\s+>|be\s+<|include|not_to\s+include)\s+\'?(.*?)\'?\s*',
+#             content
+#         )
+
+#         for match in expect_matches:
+#             condition_description, variable_name, resource_type, _project_var, property_name, _, operator, value = match
+#             conditions.append({
+#                 'property': property_name,
+#                 'operator': operator.replace(' ', '_'),  # Normalize operator for easier handling
+#                 'value': value
+#             })
+
+#         return {
+#             'resource': resource,
+#             'scope': scope,
+#             'conditions': conditions
+#         }
+
+#     except Exception as e:
+#         return str(e), 500
+
+
+def parse_ruby_file(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            content = file.read()
+
+        # Extracting resource using regex that captures specific resource names
+        resource_match = re.search(r'google_(\w+)(?:_.*)?\(', content)
+        if resource_match:
+            resource = f'google_{resource_match.group(1)}'
+        else:
+            resource = None
+
+        # Extracting scope
+        scope = 'all' if 'google_projects.project_ids' in content else 'single project'
+
+        # Extracting conditions
+        conditions = []
+
+        # Improved regex for extracting `it` blocks and their properties
+        expect_matches = re.findall(
+            r'it "should have correct (.*?)" do\s*'
+            r'(\w+) = google_(\w+)\(project:\s*\w+,\s*name:\s*(\w+)\)\s*'
+            r'expect\((\w+)\.(\w+)\)\s*(?:to)?\s*(eq|not_to\s+eq|be\s+>|be\s+<|include|not_to\s+include)\s+(\'[^\']*\'|\"[^\"]*\"|[\w]+)\s*',
+            content
+        )
+
+        # Iterate over matches and extract conditions
+        for match in expect_matches:
+            condition_description, variable_name, resource_type, name_variable, property_name, operator, value = match
+            value = value.strip('\'"')  # Strip single and double quotes
+
+            # Append condition details
+            conditions.append({
+                'description': condition_description.strip(),  # Condition description
+                'property': property_name.strip(),              # Property name
+                'operator': operator.replace(' ', '_').strip(),  # Normalize operator
+                'value': value.strip()                          # Value without quotes
+            })
+
+        return {
+            'resource': resource,
+            'scope': scope,
+            'conditions': conditions
+        }
+
+    except Exception as e:
+        return str(e), 500
+
+
+
+@app.route('/parse_ruby_file/<string:selected_profile>/<string:file_name>', methods=['GET'])
+def parse_ruby_file_route(selected_profile, file_name):
+    # Adjust the path as needed to include the selected profile
+    file_path = os.path.join('available-controls', selected_profile, file_name)
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+
+    parsed_data = parse_ruby_file(file_path)
+    return jsonify(parsed_data)
+
     
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

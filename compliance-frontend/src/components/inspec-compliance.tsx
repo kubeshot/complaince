@@ -8,8 +8,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlusCircle, MinusCircle } from 'lucide-react'
+import { useSearchParams } from "next/navigation";
+
 
 export function InspecComplianceComponent() {
+  const searchParams = useSearchParams();
+  const selectedProfile = searchParams.get("profile");
+
+
   const [resource, setResource] = useState('')
   const [scope, setScope] = useState('all')
   const [selectedProject, setSelectedProject] = useState('')
@@ -17,6 +23,7 @@ export function InspecComplianceComponent() {
   const [controlStrings, setControlStrings] = useState([])
   const [projects, setProjects] = useState([])
 
+  const [rubyFiles, setRubyFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const resources = ['google_compute_firewall', 'google_compute_zone', 'google_storage_bucket', 'google_compute_global_address', 'google_compute_address', 'google_compute_global_operation']
@@ -28,6 +35,60 @@ export function InspecComplianceComponent() {
   // }
 
   const operators = ['Equals', 'Not Equals', 'Greater Than', 'Less Than', 'Contains', 'Does Not Contain']
+
+
+  const fetchRubyFiles = async (selectedProfile: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:5001/fetch_files/${selectedProfile}`);
+
+      if (!response.ok) {
+        setLoading(false);
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      console.log('Ruby Files:', data.files); // Log the fetched file names
+      setRubyFiles(data.files);
+      setLoading(false);
+      return data.files; // Return the file names for further use
+    } catch (error) {
+      setLoading(false);
+      console.error('Error fetching files:', error);
+    }
+  };
+
+  const handleFileClick = async (fileName: string, selectedProfile: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:5001/parse_ruby_file/${selectedProfile}/${fileName}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to parse the Ruby file');
+      }
+
+      const parsedData = await response.json();
+      console.log('Parsed Data:', parsedData); // Log the parsed file data
+      // Update the UI with parsed data (e.g., set state or display it)
+      setLoading(false);
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      setLoading(false);
+    }
+  };
+
+
+
+  useEffect(() => {
+    // Optionally, you can perform actions when the profile changes
+    if (selectedProfile) {
+      fetchRubyFiles(selectedProfile);
+      console.log("42 Selected Profile:", selectedProfile);
+      // Additional logic based on the selected profile
+    }
+  }, [selectedProfile]);
+
+
 
   useEffect(() => {
     setLoading(true);
@@ -424,7 +485,7 @@ export function InspecComplianceComponent() {
       },
       operator: 'Equals', // Default operator for progress
     },
-    
+
     status: {
       inputType: 'dropdown', // Dropdown for operation status
       allowedValues: ['PENDING', 'PENDINGPENDING', 'DONE'], // Possible status values
@@ -747,7 +808,7 @@ export function InspecComplianceComponent() {
   // };
 
 
-  const saveRubyFile = async (content: string) => {
+  const saveRubyFile = async (content: string, selectedProfile: string, resource: string) => {
     console.log("saving file")
     try {
       const response = await fetch('http://localhost:5001/save_file', {
@@ -755,7 +816,7 @@ export function InspecComplianceComponent() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, selectedProfile, resource })
       });
 
       if (!response.ok) {
@@ -764,6 +825,7 @@ export function InspecComplianceComponent() {
 
       const data = await response.json();
       console.log(data.message); // Log success message
+      alert("Ruby file generated successfully")
     } catch (error) {
       console.error('Error saving file:', error);
     }
@@ -771,7 +833,7 @@ export function InspecComplianceComponent() {
 
   const handleGenerateRubyFile = () => {
     const rubyContent = generateRubyContent();
-    saveRubyFile(rubyContent);
+    saveRubyFile(rubyContent, selectedProfile, resource);
   };
 
 
@@ -1438,45 +1500,84 @@ export function InspecComplianceComponent() {
 
 
 
+
+
+
+
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold">Generate InSpec Controls</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="resource">Select Resource</Label>
-            <Select value={resource} onValueChange={setResource}>
-              <SelectTrigger id="resource">
-                <SelectValue placeholder="Select Resource" />
-              </SelectTrigger>
-              <SelectContent>
-                {resources.map((res) => (
-                  <SelectItem key={res} value={res}>
-                    {res}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div className='flex justify-between w-full  space-x-10'>
+      <Card className=" mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Ruby Files</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col space-y-4">
+            {/* <h3 className="text-lg font-semibold">Ruby Files:</h3> */}
+            {loading ? (
+              <p>Loading...</p>
+            ) : (
+              <ul className="space-y-2">
+                {rubyFiles.length > 0 ? (
+                  rubyFiles.map((fileName) => (
+                    <li key={fileName}>
+                      <button
+                        className="text-blue-600 hover:underline"
+                        onClick={() => handleFileClick(fileName, selectedProfile)}
+                      >
+                        {fileName}
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li>No Ruby files available.</li>
+                )}
+              </ul>
+            )}
           </div>
-          {resource && (
+        </CardContent>
+      </Card>
+      <Card className="  mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Generate InSpec Controls</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+
+
+
+
             <div className="space-y-2">
-              <Label htmlFor="scope">Select Scope</Label>
-              <Select value={scope} onValueChange={setScope}>
-                <SelectTrigger id="scope">
-                  <SelectValue placeholder="Select Scope" />
+              <Label htmlFor="resource">Select Resource</Label>
+              <Select value={resource} onValueChange={setResource}>
+                <SelectTrigger id="resource">
+                  <SelectValue placeholder="Select Resource" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Projects</SelectItem>
-                  <SelectItem value="single">Single Project</SelectItem>
+                  {resources.map((res) => (
+                    <SelectItem key={res} value={res}>
+                      {res}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
-        </div>
+            {resource && (
+              <div className="space-y-2">
+                <Label htmlFor="scope">Select Scope</Label>
+                <Select value={scope} onValueChange={setScope}>
+                  <SelectTrigger id="scope">
+                    <SelectValue placeholder="Select Scope" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    <SelectItem value="single">Single Project</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
 
-        {/* {scope === 'single' &&  (
+          {/* {scope === 'single' &&  (
           <div className="space-y-2">
             <Label htmlFor="project">Select Project</Label>
             <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -1498,58 +1599,59 @@ export function InspecComplianceComponent() {
           </div>
         )} */}
 
-        {scope === 'single' && (
-          !loading ? (
-            <div className="space-y-2">
-              <Label htmlFor="project">Select Project</Label>
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger id="project">
-                  <SelectValue placeholder="Select Project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.isArray(projects) && projects.length > 0 ? (
-                    projects.map((proj) => (
-                      <SelectItem key={proj.project_id} value={proj.project_id}>
-                        {proj.project_name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="" disabled>No projects available.</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <p>Loading...</p>
-          )
-        )}
+          {scope === 'single' && (
+            !loading ? (
+              <div className="space-y-2">
+                <Label htmlFor="project">Select Project</Label>
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger id="project">
+                    <SelectValue placeholder="Select Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(projects) && projects.length > 0 ? (
+                      projects.map((proj) => (
+                        <SelectItem key={proj.project_id} value={proj.project_id}>
+                          {proj.project_name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>No projects available.</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <p>Loading...</p>
+            )
+          )}
 
 
-        {resource && renderConditions(
-          resource,
-          conditions
-        )}
+          {resource && renderConditions(
+            resource,
+            conditions
+          )}
 
 
-      </CardContent>
-      <div className='flex' >
-        <CardFooter>
-          <Button onClick={generateControlString}>Generate Control</Button>
-        </CardFooter>
-        {controlStrings.length > 0 &&
-          <CardFooter>
-            <Button onClick={handleGenerateRubyFile}>Generate Ruby file</Button>
-          </CardFooter>}
-      </div>
-
-      {controlStrings.length > 0 && (
-        <CardContent>
-          <h3 className="text-lg font-semibold mb-2">Generated InSpec Controls:</h3>
-          <div className="bg-gray-100 p-4 rounded-md overflow-x-auto">
-            <pre className="text-sm">{controlStrings.join('\n\n')}</pre>
-          </div>
         </CardContent>
-      )}
-    </Card>
+        <div className='flex' >
+          <CardFooter>
+            <Button onClick={generateControlString}>Generate Control</Button>
+          </CardFooter>
+          {controlStrings.length > 0 &&
+            <CardFooter>
+              <Button onClick={handleGenerateRubyFile}>Generate Ruby file</Button>
+            </CardFooter>}
+        </div>
+
+        {controlStrings.length > 0 && (
+          <CardContent>
+            <h3 className="text-lg font-semibold mb-2">Generated InSpec Controls:</h3>
+            <div className="bg-gray-100 p-4 rounded-md overflow-x-auto">
+              <pre className="text-sm">{controlStrings.join('\n\n')}</pre>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
   )
 }
