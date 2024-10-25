@@ -806,9 +806,6 @@ export function InspecComplianceComponent() {
       if (scope === 'all') controlString += '  end\nend\n';
     }
 
-
-
-
     setControlStrings([...controlStrings, controlString])
   }
 
@@ -879,6 +876,8 @@ export function InspecComplianceComponent() {
 
       const data = await response.json();
       console.log('Ruby File Content:', data.content);
+      setControlStrings([...controlStrings, data.content])
+
       return data.content; // Return the content for further processing
 
     } catch (error) {
@@ -1794,7 +1793,11 @@ export function InspecComplianceComponent() {
                       <div className="flex justify-between">
                         <button
                           className="text-blue-600 hover:underline border-blue-500 border p-1"
-                          onClick={() => fetchRubyFileContent(selectedProfile, fileName)}
+                          onClick={() => {
+                            const file_name = fileName.split(".")[0];
+                            handleEditClick(file_name);
+                            fetchRubyFileContent(selectedProfile, fileName)
+                          }}
                         >
                           View
                         </button>
