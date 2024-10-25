@@ -4,7 +4,7 @@ control 'control_1' do
     describe "Firewall: #{firewall_name} in Project: #{project_id}" do
       it "should have correct direction" do
         firewall = google_compute_firewall(project: project_id, name: firewall_name)
-        expect(firewall.direction).to eq 'EGRESS'
+        expect(firewall.direction).to eq 'INGRESS'
       end
     end
   end

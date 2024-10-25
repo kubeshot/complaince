@@ -7,6 +7,7 @@ import os
 from flask_cors import CORS  # Import CORS
 import time
 import re
+import json
 
 
 
@@ -109,11 +110,16 @@ def save_file():
 
     folder_path = os.path.join('./available-controls/', selected_profile)
 
-    # timestamp = int(time.time())  # Get the current time as a timestamp
-    # file_name = f'compliance_control_{timestamp}.rb'
-    file_name = f'{resource}.rb'
-    # file_path = os.path.join('./controls/', file_name)
+    # Ensure the folder exists
+    os.makedirs(folder_path, exist_ok=True)
+
+    # Generate a unique filename using a timestamp to avoid overwriting
+    file_name = f'{resource}.rb'  # Append timestamp to filename
     file_path = os.path.join(folder_path, file_name)
+
+    # Write the content to the file
+    with open(file_path, 'w') as file:
+        file.write(content)
 
 
     # Write the content to the file
@@ -221,108 +227,89 @@ def fetch_files(selected_profile):
         return jsonify({'error': 'Profile not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
-# def parse_ruby_file(file_path):
-#     try:
-#         with open(file_path, 'r') as file:
-#             content = file.read()
-
-#         # Extracting resource
-#         resource_match = re.search(r'google_(\w+)_\w+', content)
-#         if resource_match:
-#             resource = f'google_{resource_match.group(1)}'
-#         else:
-#             resource = None
-
-#         # Extracting scope
-#         scope = 'all' if 'google_projects.project_ids' in content else 'single project'
-
-#         # Extracting conditions
-#         conditions = []
-
-#         # Find all `expect` lines
-#         expect_matches = re.findall(
-#             r'it "should have correct (.*?)" do\s+(\w+) = google_(\w+)\(project: \w+, name: \w+\)\s+expect\((\w+)\.(\w+)\)\.\s*(to\s+)?(eq|not_to\s+eq|be\s+>|be\s+<|include|not_to\s+include)\s+\'?(.*?)\'?\s*',
-#             content
-#         )
-
-#         for match in expect_matches:
-#             condition_description, variable_name, resource_type, _project_var, property_name, _, operator, value = match
-#             conditions.append({
-#                 'property': property_name,
-#                 'operator': operator.replace(' ', '_'),  # Normalize operator for easier handling
-#                 'value': value
-#             })
-
-#         return {
-#             'resource': resource,
-#             'scope': scope,
-#             'conditions': conditions
-#         }
-
-#     except Exception as e:
-#         return str(e), 500
 
 
-def parse_ruby_file(file_path):
+@app.route('/fetch_ruby_file/<string:profile_name>/<string:file_name>', methods=['GET'])
+def fetch_ruby_file(profile_name, file_name):
     try:
+        # Construct the file path
+        file_path = os.path.join( 'available-controls', profile_name, file_name)
+
+        # Check if the file exists
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+
+        # Read the content of the file
         with open(file_path, 'r') as file:
             content = file.read()
 
-        # Extracting resource using regex that captures specific resource names
-        resource_match = re.search(r'google_(\w+)(?:_.*)?\(', content)
-        if resource_match:
-            resource = f'google_{resource_match.group(1)}'
-        else:
-            resource = None
-
-        # Extracting scope
-        scope = 'all' if 'google_projects.project_ids' in content else 'single project'
-
-        # Extracting conditions
-        conditions = []
-
-        # Improved regex for extracting `it` blocks and their properties
-        expect_matches = re.findall(
-            r'it "should have correct (.*?)" do\s*'
-            r'(\w+) = google_(\w+)\(project:\s*\w+,\s*name:\s*(\w+)\)\s*'
-            r'expect\((\w+)\.(\w+)\)\s*(?:to)?\s*(eq|not_to\s+eq|be\s+>|be\s+<|include|not_to\s+include)\s+(\'[^\']*\'|\"[^\"]*\"|[\w]+)\s*',
-            content
-        )
-
-        # Iterate over matches and extract conditions
-        for match in expect_matches:
-            condition_description, variable_name, resource_type, name_variable, property_name, operator, value = match
-            value = value.strip('\'"')  # Strip single and double quotes
-
-            # Append condition details
-            conditions.append({
-                'description': condition_description.strip(),  # Condition description
-                'property': property_name.strip(),              # Property name
-                'operator': operator.replace(' ', '_').strip(),  # Normalize operator
-                'value': value.strip()                          # Value without quotes
-            })
-
-        return {
-            'resource': resource,
-            'scope': scope,
-            'conditions': conditions
-        }
+        # Return the content as a JSON response
+        return jsonify({'content': content})
 
     except Exception as e:
-        return str(e), 500
+        return jsonify({'error': str(e)}), 500
 
 
 
-@app.route('/parse_ruby_file/<string:selected_profile>/<string:file_name>', methods=['GET'])
-def parse_ruby_file_route(selected_profile, file_name):
-    # Adjust the path as needed to include the selected profile
-    file_path = os.path.join('available-controls', selected_profile, file_name)
-    if not os.path.exists(file_path):
-        return jsonify({'error': 'File not found'}), 404
+@app.route('/save-control-json', methods=['POST'])
+def save_control():
+    data = request.get_json()
 
-    parsed_data = parse_ruby_file(file_path)
-    return jsonify(parsed_data)
+    # Extract the fields from the request
+    conditions = data.get('conditions')
+    resource = data.get('resource')
+    selected_project = data.get('selectedProject')
+    scope = data.get('scope')
+    selected_profile = data.get('selectedProfile')
+
+    # Specify the file path to save the JSON
+    file_path = f'available-controls/{selected_profile}/data.json'
+
+    # Initialize control data
+    control_data = {
+        'resource': resource,
+        'scope': scope,
+        'selectedProject': selected_project,
+        'conditions': conditions,
+    }
+
+    # Load existing data if the file exists
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as json_file:
+            existing_data = json.load(json_file)
+    else:
+        existing_data = {}
+
+    # Update or append control data
+    if resource in existing_data:
+        # Update existing resource
+        existing_data[resource].update(control_data)
+    else:
+        # Append new resource
+        existing_data[resource] = control_data
+
+    # Save the updated data to the JSON file
+    with open(file_path, 'w') as json_file:
+        json.dump(existing_data, json_file, indent=4)
+
+    return jsonify({"message": "Control data saved successfully!"}), 200
+
+@app.route('/fetch-control-json', methods=['GET'])
+def fetch_control():
+    selected_profile = request.args.get('selectedProfile')  # Get the profile from query parameters
+
+    if not selected_profile:
+        return jsonify({"error": "No profile specified"}), 400
+
+    # Define the file path based on the selected profile
+    file_path = os.path.join('available-controls', selected_profile, 'data.json')
+
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as json_file:
+            data = json.load(json_file)
+        return jsonify(data), 200
+    else:
+        return jsonify({"message": "No control data found for the specified profile."}), 404
 
     
 if __name__ == '__main__':
