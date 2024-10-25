@@ -1,0 +1,14 @@
+{
+    "google_compute_firewall": {
+        "resource": "google_compute_firewall",
+        "scope": "all",
+        "selectedProject": "kubeshot-admin",
+        "conditions": [
+            {
+                "operator": "Equals",
+                "property": "direction",
+                "value": "EGRESS"
+            }
+        ]
+    }
+}

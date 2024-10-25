@@ -1,0 +1,14 @@
+{
+    "google_compute_firewall": {
+        "resource": "google_compute_firewall",
+        "scope": "all",
+        "selectedProject": "",
+        "conditions": [
+            {
+                "property": "direction",
+                "operator": "Equals",
+                "value": "INGRESS"
+            }
+        ]
+    }
+}
