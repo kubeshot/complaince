@@ -27,6 +27,8 @@ export function InspecComplianceComponent() {
   const [loading, setLoading] = useState(false);
 
   const [jsonData, setJsonData] = useState(null);
+  const [resourcesToDisable, setResourcesToDisable] = useState([]);
+
 
   const [showInspec, setShowInspec] = useState(false);
 
@@ -897,6 +899,9 @@ export function InspecComplianceComponent() {
       const data = await response.json();
       setJsonData(data); // Store the fetched data in state
 
+      const disabledResources = Object.keys(data);
+      setResourcesToDisable(disabledResources);
+
       // Optionally, log the fetched data to check its structure
       console.log('Fetched Data:', data);
 
@@ -1613,7 +1618,7 @@ export function InspecComplianceComponent() {
                   </SelectTrigger>
                   <SelectContent>
                     {resources.map((res) => (
-                      <SelectItem key={res} value={res}>
+                      <SelectItem key={res} value={res} disabled={resourcesToDisable.includes(res)}>
                         {res}
                       </SelectItem>
                     ))}
@@ -1759,7 +1764,7 @@ export function InspecComplianceComponent() {
 
     <>
       <button
-        className={`text-blue-600 hover:underline flex ${showInspec ? "self-end" : "self-start" }  border-blue-500 border p-2`}
+        className={`text-blue-600 hover:underline flex ${showInspec ? "self-end" : "self-start"}  border-blue-500 border p-2`}
         onClick={() => {
           setShowInspec(true);
           setResource('');
