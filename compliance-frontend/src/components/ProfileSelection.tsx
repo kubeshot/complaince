@@ -1,140 +1,9 @@
-
-// "use client"; // Add this line to mark the component as a Client Component
-
-// import { useEffect, useState } from "react";
-// import Link from "next/link";
-
-// export default function ProfileSelection() {
-//     const [isModalOpen, setIsModalOpen] = useState(false);
-//     const [profileName, setProfileName] = useState("");
-
-//     const [profiles, setProfiles] = useState<string[]>([]); // Renamed state to profiles
-
-
-//     const openModal = () => {
-//         setIsModalOpen(true);
-//     };
-
-//     const closeModal = () => {
-//         setIsModalOpen(false);
-//         setProfileName(""); // Reset the profile name when modal is closed
-//     };
-
-//     // const handleCreateProfile = () => {
-//     //     if (profileName.trim()) {
-//     //         // Redirect to inspec-compliance with the profile name (optional: can be passed via query params)
-//     //         console.log(`Creating profile: ${profileName}`);
-//     //         closeModal();
-//     //     } else {
-//     //         alert("Please enter a valid profile name.");
-//     //     }
-//     // };
-
-//     const handleCreateProfile = async () => {
-//         if (profileName.trim()) {
-//             try {
-//                 const response = await fetch("http://localhost:5001/api/create-folder", {
-//                     method: "POST",
-//                     headers: {
-//                         "Content-Type": "application/json",
-//                     },
-//                     body: JSON.stringify({ profile_name: profileName }),
-//                 });
-
-//                 if (response.ok) {
-//                     const data = await response.json();
-//                     console.log(data.message); // Handle success message
-//                     closeModal();
-//                 } else {
-//                     const errorData = await response.json();
-//                     alert(errorData.error); // Handle error message
-//                 }
-//             } catch (error) {
-//                 console.error("Error creating folder:", error);
-//                 alert("An error occurred while creating the folder.");
-//             }
-//         } else {
-//             alert("Please enter a valid profile name.");
-//         }
-//     };
-
-//     const fetchProfiles = async () => {
-//         try {
-//             const response = await fetch("http://localhost:5001/api/fetch-folders");
-//             if (response.ok) {
-//                 const data = await response.json();
-//                 setProfiles(data); // Set the profiles in state
-//                 console.log(data)
-//             } else {
-//                 const errorData = await response.json();
-//                 console.error(errorData.error); // Handle error
-//             }
-//         } catch (error) {
-//             console.error("Error fetching profiles:", error);
-//         }
-//     };
-
-//     useEffect(() => {
-//         fetchProfiles(); // Fetch profiles on component mount
-//     }, []);
-
-
-
-//     return (
-//         <div className="min-h-screen flex flex-col items-center gap-8 p-8">
-//             <h1 className="text-3xl font-bold mb-4">Welcome! Choose an Option:</h1>
-//             <div className="flex flex-col sm:flex-row gap-4">
-//                 {/* Option to Select Existing Profile */}
-//                 <Link href="/profiles" className="px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 text-center">
-//                     Select from Existing Profiles
-//                 </Link>
-//                 {/* Option to Create New Profile */}
-//                 <button
-//                     onClick={openModal}
-//                     className="px-6 py-3 bg-green-500 text-white rounded hover:bg-green-600 text-center"
-//                 >
-//                     Create New Profile
-//                 </button>
-//             </div>
-
-//             {/* Modal */}
-//             {isModalOpen && (
-//                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-//                     <div className="bg-white p-6 rounded shadow-lg w-80">
-//                         <h2 className="text-xl font-bold mb-4">Enter Profile Name</h2>
-//                         <input
-//                             type="text"
-//                             className="w-full px-3 py-2 border rounded mb-4"
-//                             placeholder="Profile Name"
-//                             value={profileName}
-//                             onChange={(e) => setProfileName(e.target.value)}
-//                         />
-//                         <div className="flex justify-end gap-2">
-//                             <button
-//                                 onClick={closeModal}
-//                                 className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-//                             >
-//                                 Cancel
-//                             </button>
-//                             <button
-//                                 onClick={handleCreateProfile}
-//                                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-//                             >
-//                                 Create
-//                             </button>
-//                         </div>
-//                     </div>
-//                 </div>
-//             )}
-//         </div>
-//     );
-// }
-
 "use client";
 
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+
 
 
 export default function ProfileSelection() {
@@ -177,6 +46,8 @@ export default function ProfileSelection() {
                     console.log(data.message); // Handle success message
                     closeCreateModal();
                     fetchProfiles(); // Fetch profiles again after creation
+                    window.location.href = `/inspec-compliance?profile=${encodeURIComponent(profileName)}`; // Redirect after creation
+
                 } else {
                     const errorData = await response.json();
                     alert(errorData.error); // Handle error message
