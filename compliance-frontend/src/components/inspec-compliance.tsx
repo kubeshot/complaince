@@ -1812,7 +1812,8 @@ export function InspecComplianceComponent() {
                   </Card>
                 ))
               ) : (
-                <p>No Ruby files available.</p>
+                // <p>No Ruby files available.</p>
+                <></>
               )}
             </div>
           )}
